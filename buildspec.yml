@@ -1,0 +1,27 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - pip install --upgrade pip
+      - pip install -r requirements.txt
+      - pip install -r requirements-dev.txt
+  pre_build:
+    commands:
+      # Variables mínimas para tests en CI
+      - export DATABASE_URL=sqlite:///ci.sqlite3
+      - export PORT=5000
+  build:
+    commands:
+      # 1) Tests con cobertura (falla el build si <70%)
+      - pytest -q --maxfail=1 --disable-warnings --cov=src --cov=application --cov-report=xml --cov-fail-under=70
+      # 2) Empaquetar artefacto para despliegue posterior (solo generación)
+      - mkdir -p artifact
+      - cp -r application.py src requirements.txt .ebextensions Procfile artifact/ 2>/dev/null || true
+      - cd artifact && zip -r ../blacklist-ms-$(date +%Y%m%d%H%M%S).zip .
+artifacts:
+  files:
+    - 'blacklist-ms-*.zip'
+  discard-paths: yes
