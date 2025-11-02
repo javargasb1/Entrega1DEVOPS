@@ -1,0 +1,48 @@
+name: CI Blacklist MS
+
+on:
+  push:
+    branches: [ "master", "main" ]
+
+jobs:
+  test-and-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          pip install --upgrade pip
+          pip install -r blacklist-ms/requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run tests
+        env:
+          DATABASE_URL: sqlite:///ci.sqlite3
+          AUTH_TOKEN: change-me-very-strong
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$GITHUB_WORKSPACE/blacklist-ms
+          pytest -q --maxfail=1 --disable-warnings \
+            --cov=blacklist-ms/src \
+            --cov=blacklist-ms/application.py \
+            --cov-report=xml \
+            --cov-fail-under=70
+
+      - name: Package artifact
+        run: |
+          mkdir -p artifact
+          cd blacklist-ms
+          zip -r ../artifact/blacklist-ms-${{ github.sha }}.zip application.py src .ebextensions requirements.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: blacklist-ms-${{ github.sha }}
+          path: artifact/*.zip
