@@ -21,6 +21,16 @@ application.config["FEATURE_VERBOSE"] = FEATURE_VERBOSE  # disponible para quien
 db.init_app(application)
 with application.app_context():
     db.create_all()
+try:
+    # si tus modelos y el "db" están en src/models.py
+    from src import models as _models
+    _db = _models.db
+except Exception:
+    # fallback si usaste otro nombre/ubicación
+    from src.database import db as _db  # o from src.db import db as _db
+
+with application.app_context():
+    _db.create_all()
 
 # ---- Health ----
 @application.route("/health", methods=["GET"])
