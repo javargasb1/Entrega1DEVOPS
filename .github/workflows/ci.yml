@@ -12,6 +12,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Mostrar estructura (debug)
+        run: |
+          pwd
+          ls -la
+          find . -maxdepth 3 -type d -print
+
+      - name: Detectar carpeta base (raíz vs Entrega1DEVOPS)
+        run: |
+          if [ -f "blacklist-ms/requirements.txt" ]; then
+            echo "BASE=." >> $GITHUB_ENV
+          elif [ -f "Entrega1DEVOPS/blacklist-ms/requirements.txt" ]; then
+            echo "BASE=Entrega1DEVOPS" >> $GITHUB_ENV
+          else
+            echo "::error::No encuentro blacklist-ms/requirements.txt ni en ./ ni en ./Entrega1DEVOPS"
+            exit 1
+          fi
+          echo "Usando BASE=$BASE"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -20,26 +38,27 @@ jobs:
       - name: Install deps
         run: |
           pip install --upgrade pip
-          pip install -r blacklist-ms/requirements.txt
+          pip install -r "$BASE/blacklist-ms/requirements.txt"
           pip install pytest pytest-cov
 
-      - name: Run tests
+      - name: Run tests (70% coverage)
         env:
           DATABASE_URL: sqlite:///ci.sqlite3
           AUTH_TOKEN: change-me-very-strong
         run: |
-          export PYTHONPATH=$PYTHONPATH:$GITHUB_WORKSPACE/blacklist-ms
+          export PYTHONPATH=$PYTHONPATH:$GITHUB_WORKSPACE/$BASE/blacklist-ms
           pytest -q --maxfail=1 --disable-warnings \
-            --cov=blacklist-ms/src \
-            --cov=blacklist-ms/application.py \
+            "$BASE/tests" \
+            --cov="$BASE/blacklist-ms/src" \
+            --cov="$BASE/blacklist-ms/application.py" \
             --cov-report=xml \
             --cov-fail-under=70
 
       - name: Package artifact
         run: |
           mkdir -p artifact
-          cd blacklist-ms
-          zip -r ../artifact/blacklist-ms-${{ github.sha }}.zip application.py src .ebextensions requirements.txt
+          cd "$BASE/blacklist-ms"
+          zip -r "$GITHUB_WORKSPACE/artifact/blacklist-ms-${{ github.sha }}.zip" application.py src .ebextensions requirements.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
